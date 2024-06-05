@@ -9,6 +9,25 @@
 #include <QVBoxLayout>
 #include <QLabel>
 
+ParticleDrawingWidget::ParticleDrawingWidget(const std::vector<Particle>& particles, QWidget *parent)
+    : particles(particles), QWidget(parent) {
+    setMinimumSize(600, 400);  // Set a minimum size for the drawing area
+}
+
+void ParticleDrawingWidget::setParticles(const std::vector<Particle> &particles) {
+    this->particles = particles;
+    update();
+}
+
+void ParticleDrawingWidget::paintEvent(QPaintEvent *event) {
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing);
+
+    for (const auto &particle : particles) {
+        particle.draw(painter);
+    }
+}
+
 GasSimulation::GasSimulation(QWidget *parent)
     : QWidget(parent)
     , ui(new Ui::GasSimulation)
@@ -20,14 +39,21 @@ GasSimulation::GasSimulation(QWidget *parent)
     timer = new QTimer(this);
     connect(timer, &QTimer::timeout, this, &GasSimulation::updatePositions);
 
-    // create the stop button
-    connect(findChild<QPushButton *>("stopSimulationButton"), &QPushButton::clicked, this, &GasSimulation::stop);
+    // Create the stop button
+    QPushButton *stopButton = findChild<QPushButton*>("stopSimulationButton");
+    // this->stopButton = stopButton;
+    if (stopButton) {
+        connect(stopButton, &QPushButton::clicked, this, &GasSimulation::stop);
+    } else {
+        qDebug() << "Stop button not found!";
+    }
 
-    // Layout
-    QVBoxLayout *layout = new QVBoxLayout;
-    layout->addWidget(stopButton);
+    // Create the drawing widget and layout
+    drawingWidget = new ParticleDrawingWidget(particles, this);
+    QVBoxLayout *layout = new QVBoxLayout(this);
+    layout->addWidget(drawingWidget);
+    layout->addWidget(stopButton, 0, Qt::AlignBottom);
     setLayout(layout);
-
 }
 
 GasSimulation::~GasSimulation()
@@ -55,20 +81,16 @@ void GasSimulation::initializeParticles(int bigCount, int smallCount, float temp
         ParticleType type;
     };
 
-    // Configuration for small and big particles
-    const ParticleConfig smallParticle = {10.0f, 1.0f, ParticleType::Small};
+    const ParticleConfig smallParticle = {5.0f, 1.0f, ParticleType::Small};
     const ParticleConfig bigParticle = {15.0f, 3.0f, ParticleType::Big};
 
-    // Function to generate a specific type of particle
     auto generateParticles = [this](int count, const ParticleConfig& config, float temperature) {
-        float baseSpeed = std::sqrt(temperature / config.mass); // Adjust speed by mass
-
+        float baseSpeed = std::sqrt(temperature / config.mass);
         for (int i = 0; i < count; ++i) {
             float x, y, vx, vy;
             int maxAttempts = 100;
             bool overlapping = true;
 
-            // Find a position that's not overlapping
             while (overlapping && maxAttempts-- > 0) {
                 x = std::rand() % width();
                 y = std::rand() % height();
@@ -78,29 +100,23 @@ void GasSimulation::initializeParticles(int bigCount, int smallCount, float temp
                 }
             }
 
-            // If overlapping attempts failed, skip this particle
             if (overlapping) {
                 qDebug() << "Skipping particle due to too many overlapping attempts.";
                 continue;
             }
 
-            // Generate random velocity with the calculated base speed
             vx = baseSpeed * ((std::rand() % 100) / 50.0f - 1.0f);
             vy = baseSpeed * ((std::rand() % 100) / 50.0f - 1.0f);
 
-            // Add the particle to the simulation
             particles.emplace_back(x, y, vx, vy, config.radius, config.mass, config.type);
         }
     };
 
-    // Generate small particles
     generateParticles(smallCount, smallParticle, temperature);
-
-    // Generate big particles
     generateParticles(bigCount, bigParticle, temperature);
+
+    // drawingWidget->setParticles(particles);
 }
-
-
 
 bool GasSimulation::isOverlapping(float x, float y, float radius) {
     for (const auto &particle : particles) {
@@ -163,7 +179,6 @@ void GasSimulation::updatePositions() {
         keepWithinBorders(particle);
     }
 
-    // Check collisions between all pairs of particles
     for (size_t i = 0; i < particles.size(); ++i) {
         for (size_t j = i + 1; j < particles.size(); ++j) {
             if (particles[i].collidesWith(particles[j])) {
@@ -172,89 +187,42 @@ void GasSimulation::updatePositions() {
         }
     }
 
+    // drawingWidget->setParticles(particles);
     update();
 }
 
 // Collision Resolution
 void GasSimulation::resolveCollision(Particle &circle1, Particle &circle2) {
-    // // Position difference
-    // QPointF posDiffFirst = vectorSubtract(QPointF(circle1.getX(), circle1.getY()), QPointF(circle2.getX(), circle2.getY()));
-    // QPointF posDiffSecond = vectorSubtract(QPointF(circle2.getX(), circle2.getY()), QPointF(circle1.getX(), circle1.getY()));
+    // Calculate the difference in positions
+    float dx = circle2.getX() - circle1.getX();
+    float dy = circle2.getY() - circle1.getY();
 
-    // // Velocity vectors
-    // QPointF velFirst(circle1.getVX(), circle1.getVY());
-    // QPointF velSecond(circle2.getVX(), circle2.getVY());
+    // Calculate the distance between the particles
+    float distance = std::sqrt(dx * dx + dy * dy);
 
-    // // Velocity differences
-    // QPointF velDiffFirst = vectorSubtract(velFirst, velSecond);
-    // QPointF velDiffSecond = vectorSubtract(velSecond, velFirst);
+    // Calculate the normal and tangent vectors
+    float nx = dx / distance;
+    float ny = dy / distance;
+    float tx = -ny;
+    float ty = nx;
 
-    // // Calculate dot products of velocity and positions
-    // double firstDot = dotProduct(velDiffFirst, posDiffFirst);
-    // double secondDot = dotProduct(velDiffSecond, posDiffSecond);
+    // Calculate the dot products of the velocity vectors with the normal and tangent vectors
+    float dpTan1 = circle1.getVX() * tx + circle1.getVY() * ty;
+    float dpTan2 = circle2.getVX() * tx + circle2.getVY() * ty;
 
-    // // Calculate the squares of the norms
-    // double firstSquare = posDiffFirst.x() * posDiffFirst.x() + posDiffFirst.y() * posDiffFirst.y();
-    // double secondSquare = posDiffSecond.x() * posDiffSecond.x() + posDiffSecond.y() * posDiffSecond.y();
+    float dpNorm1 = circle1.getVX() * nx + circle1.getVY() * ny;
+    float dpNorm2 = circle2.getVX() * nx + circle2.getVY() * ny;
 
-    // // Check if circles are already colliding
-    // if (firstSquare == 0 || secondSquare == 0) return;
+    // Calculate the new normal velocities using the 1D elastic collision equations
+    float m1 = (dpNorm1 * (circle1.getMass() - circle2.getMass()) + 2.0f * circle2.getMass() * dpNorm2) / (circle1.getMass() + circle2.getMass());
+    float m2 = (dpNorm2 * (circle2.getMass() - circle1.getMass()) + 2.0f * circle1.getMass() * dpNorm1) / (circle1.getMass() + circle2.getMass());
 
-    // // Calculate new velocities
-    // QPointF newFirstVel = velFirst - (firstDot / firstSquare) * posDiffFirst;
-    // QPointF newSecondVel = velSecond - (secondDot / secondSquare) * posDiffSecond;
+    // Update the velocities of the particles
+    circle1.setVX(tx * dpTan1 + nx * m1);
+    circle1.setVY(ty * dpTan1 + ny * m1);
+    circle2.setVX(tx * dpTan2 + nx * m2);
+    circle2.setVY(ty * dpTan2 + ny * m2);
 
-    // // Update velocity values in particles
-    // circle1.setVX(newFirstVel.x());
-    // circle1.setVY(newFirstVel.y());
-    // circle2.setVX(newSecondVel.x());
-    // circle2.setVY(newSecondVel.y());
-
-    // Position difference
-    QPointF posDiff = vectorSubtract(QPointF(circle1.getX(), circle1.getY()), QPointF(circle2.getX(), circle2.getY()));
-    double distance = std::sqrt(posDiff.x() * posDiff.x() + posDiff.y() * posDiff.y());
-    double minDist = circle1.getRadius() + circle2.getRadius();
-
-    // Skip if the circles are not actually colliding
-    if (distance >= minDist || distance == 0) return;
-
-    // Calculate the normal unit vector
-    QPointF normal(posDiff.x() / distance, posDiff.y() / distance);
-
-    // Separate the circles if overlapping
-    double overlap = 0.5 * (minDist - distance);
-    circle1.setX(circle1.getX() + overlap * normal.x());
-    circle1.setY(circle1.getY() + overlap * normal.y());
-    circle2.setX(circle2.getX() - overlap * normal.x());
-    circle2.setY(circle2.getY() - overlap * normal.y());
-
-    // Velocity vectors
-    QPointF vel1(circle1.getVX(), circle1.getVY());
-    QPointF vel2(circle2.getVX(), circle2.getVY());
-
-    // Calculate the relative velocity
-    QPointF relVel = vectorSubtract(vel1, vel2);
-
-    // Determine the relative velocity along the collision normal
-    double velAlongNormal = dotProduct(relVel, normal);
-
-    // If the circles are moving apart, skip
-    if (velAlongNormal > 0) return;
-
-    // Coefficient of restitution (elasticity)
-    double restitution = 1.0;
-
-    // Calculate the impulse scalar
-    double impulseScalar = -(1 + restitution) * velAlongNormal / 2;
-
-    // Calculate the impulse vector
-    QPointF impulse(impulseScalar * normal.x(), impulseScalar * normal.y());
-
-    // Apply impulse to the velocities of both particles
-    circle1.setVX(vel1.x() + impulse.x());
-    circle1.setVY(vel1.y() + impulse.y());
-    circle2.setVX(vel2.x() - impulse.x());
-    circle2.setVY(vel2.y() - impulse.y());
 }
 
 QPointF GasSimulation::vectorSubtract(const QPointF &vec1, const QPointF &vec2) const {
@@ -262,6 +230,5 @@ QPointF GasSimulation::vectorSubtract(const QPointF &vec1, const QPointF &vec2) 
 }
 
 double GasSimulation::dotProduct(const QPointF &vec1, const QPointF &vec2) const {
-    return vec1.x() * vec2.x() + vec1.y() * vec2.y();
+    return vec1.x() * vec2.x() + vec2.y() * vec2.y();
 }
-

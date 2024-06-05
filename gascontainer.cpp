@@ -35,5 +35,3 @@ void GasContainer::startSimulation() {
 void GasContainer::stopSimulation() {
     stackedWidget->setCurrentIndex(0);
 }
-
-

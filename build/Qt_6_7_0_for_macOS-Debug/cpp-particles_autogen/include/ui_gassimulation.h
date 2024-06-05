@@ -12,7 +12,6 @@
 #include <QtCore/QVariant>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QPushButton>
-#include <QtWidgets/QVBoxLayout>
 #include <QtWidgets/QWidget>
 
 QT_BEGIN_NAMESPACE
@@ -20,7 +19,6 @@ QT_BEGIN_NAMESPACE
 class Ui_GasSimulation
 {
 public:
-    QVBoxLayout *verticalLayout;
     QPushButton *stopSimulationButton;
 
     void setupUi(QWidget *GasSimulation)
@@ -28,13 +26,9 @@ public:
         if (GasSimulation->objectName().isEmpty())
             GasSimulation->setObjectName("GasSimulation");
         GasSimulation->resize(659, 454);
-        verticalLayout = new QVBoxLayout(GasSimulation);
-        verticalLayout->setObjectName("verticalLayout");
         stopSimulationButton = new QPushButton(GasSimulation);
         stopSimulationButton->setObjectName("stopSimulationButton");
-
-        verticalLayout->addWidget(stopSimulationButton);
-
+        stopSimulationButton->setGeometry(QRect(12, 213, 123, 32));
 
         retranslateUi(GasSimulation);
 
