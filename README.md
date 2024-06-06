@@ -91,4 +91,33 @@ This project is a C++ Qt application that simulates an ideal gas. The user can c
 
 - To stop the simulation, click the "Stop Simulation" button. You can adjust the parameters and start the simulation again if needed.
 
-By following these steps, you will be able to build and run the ideal gas simulation application, configure the simulation parameters, and observe the particles in motion.
+## Mathematical basis for the simulation
+### Temperature and initial velocities
+The temperature of the gas, 𝑇, in Kelvin affects the average kinetic energy of the particles. According to the kinetic theory of gases, the average kinetic energy ⟨𝐸𝑘⟩ of a particle is given by:
+
+⟨𝐸𝑘⟩ = (3/2) 𝑘𝐵𝑇
+
+where 𝑘𝐵 is the Boltzmann constant. The velocities of the particles are initialized to reflect this average kinetic energy, with higher temperatures resulting in higher velocities.
+
+### Collision Detection
+Collisions between particles are detected by checking the distance between their centers. If the distance is less than the sum of their radii, a collision is detected.
+
+### Collision Resolution
+When two particles collide, their positions and velocities are used to calculate the outcomes. The collision resolution process involves:
+
+#### Relative Position and Distance:
+The difference in positions of the two particles is used to calculate the distance between them. This distance is essential in determining if a collision has occurred and in what direction the collision forces will act.
+
+#### Normal and Tangent Vectors:
+The normal vector (𝑛) is calculated along the line connecting the centers of the two particles, while the tangent vector (𝑡) is perpendicular to it. These vectors help in decomposing the velocities into components parallel and perpendicular to the collision axis.
+
+#### Velocity Decomposition:
+The velocities of the particles are decomposed into components along the normal and tangent vectors. This allows the calculation of the effect of the collision in one-dimensional terms along the collision axis, simplifying the math involved.
+
+#### Elastic Collision Equations:
+The equations for one-dimensional elastic collisions are used to compute the new velocities of the particles along the normal direction. These equations ensure that both momentum and kinetic energy are conserved during the collision.
+
+#### Recomposing Velocities:
+Finally, the new normal velocities are combined with the unchanged tangent velocities to update the overall velocities of the particles after the collision.
+
+By using these mathematical principles, the simulation ensures realistic behavior of particles during collisions, maintaining the physical laws of conservation of momentum and energy.
